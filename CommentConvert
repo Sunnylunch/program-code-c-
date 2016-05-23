@@ -1,0 +1,218 @@
+#ifndef __COMMENTCONVERT_H__
+#define __COMMENTCONVERT_H__
+#define _CRT_SECURE_NO_WARNINGS 1
+#include<stdio.h>
+#include<stdlib.h>
+
+#define INPUTFILENAME "input.c"
+#define OUTPUTFILENAME "output.c"
+
+
+enum STATE
+{
+	NUL_STATE,
+	C_STATE,
+	CPP_STATE,
+	STR_STATE,
+	END_STATE
+};
+
+void CommentConvert(FILE *pfRead, FILE *pfWrite);
+void Do_NUL_State(FILE *pfRead, FILE *pfWrite);
+void Do_C_State(FILE *pfRead, FILE *pfWrite);
+void Do_CPP_State(FILE *pfRead, FILE *pfWrite);
+void Do_STR_State(FILE *pfRead, FILE *pfWrite);
+
+#endif
+
+
+
+
+
+
+include"CommentConvert.h"
+
+enum STATE state = NUL_STATE;
+
+void Do_NUL_State(FILE *pfRead, FILE *pfWrite)
+{
+	int first =0;
+	int second = 0;
+	first = fgetc(pfRead);
+	switch (first)
+	{
+	case '/':
+	    second = fgetc(pfRead);
+		fputc(first, pfWrite);
+		if ('*' == second)
+		{	
+			fputc('/', pfWrite);
+			state = C_STATE;
+		}
+		else if ('/' == second)
+		{
+			fputc(second, pfWrite);
+			state = CPP_STATE;
+		}
+		else
+		{
+			fputc(second, pfWrite);
+		}
+		break;
+	case '"':
+		fputc(first, pfWrite);
+		state = STR_STATE;
+		break;
+	case EOF:
+		state = END_STATE;
+		break;
+	default:
+		fputc(first, pfWrite);
+		break;
+	}
+}
+
+
+void Do_C_State(FILE *pfRead, FILE *pfWrite)
+{
+	int first = 0;
+	int second = 0;
+	int third = 0;
+	first = fgetc(pfRead);
+	switch (first)
+	{
+	case '*':
+		second = fgetc(pfRead);
+		if ('/' == second)
+		{
+			third = fgetc(pfRead);
+			if (third == '\n')
+			{
+				fputc('\n', pfWrite);
+			}
+			else
+			{
+				fputc('\n', pfWrite);
+				ungetc(third, pfRead);
+			}
+			state = NUL_STATE;
+		}
+		else 
+		{
+			fputc(first,pfWrite);
+			third = fgetc(pfRead);
+			if (third == '/')
+			{
+				fputc('\n',pfWrite);
+				state = NUL_STATE;
+			}
+			else
+			{
+				ungetc(third, pfRead);
+				fputc(second, pfWrite);
+			}
+		}
+		break;
+	case '\n':
+		fputc(first, pfWrite);
+		fputc('/',pfWrite);
+		fputc('/', pfWrite);
+		break;
+	default:
+		fputc(first, pfWrite);
+		break;
+	}
+}
+
+
+void Do_CPP_State(FILE *pfRead, FILE *pfWrite)
+{
+	int first = 0;
+	first = fgetc(pfRead);
+	switch (first)
+	{
+	case '\n':
+		fputc(first, pfWrite);
+		state = NUL_STATE;
+		break;
+	case EOF:
+		state = END_STATE;
+		break;
+	default:
+		fputc(first,pfWrite);
+		break;
+	}
+
+}
+
+
+void Do_STR_State(FILE *pfRead, FILE *pfWrite)
+{
+	int first = 0;
+	first = fgetc(pfRead);
+	switch (first)
+	{
+	case '"':
+		fputc(first,pfWrite);
+		state = NUL_STATE;
+		break;
+	default:
+		fputc(first, pfWrite);
+		break;
+	}
+
+}
+
+
+
+void CommentConvert(FILE *pfRead, FILE *pfWrite)
+{
+	while (END_STATE != state)
+	{
+		switch (state)
+		{
+		case NUL_STATE:
+			Do_NUL_State(pfRead, pfWrite);
+			break;
+		case C_STATE:
+			Do_C_State(pfRead, pfWrite);
+			break;
+		case CPP_STATE:
+			Do_CPP_State(pfRead, pfWrite);
+			break;
+		case STR_STATE:
+			Do_STR_State(pfRead, pfWrite);
+			break;
+		}
+	}
+}
+
+
+
+
+
+#include"CommentConvert.h"
+
+
+int main()
+{
+	printf("注释转换\n");
+	FILE *pfRead = fopen(INPUTFILENAME,"r");
+	if (NULL == pfRead)
+	{
+		perror("open file read");
+		exit(EXIT_FAILURE);
+	}
+	FILE *pfWrite= fopen(OUTPUTFILENAME, "w");
+	if (NULL == pfWrite)
+	{
+		fclose(pfRead);
+		perror("open file write");
+		exit(EXIT_FAILURE);
+	}
+	CommentConvert(pfRead, pfWrite);
+	fclose(pfRead);
+	fclose(pfWrite);
+	system("pause");
+	return 0;
+}
